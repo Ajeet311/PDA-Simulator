@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pushdown Automata Simulator</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ── HEADER ─────────────────────────────────────────────── -->
+  <header>
+    <div class="header-inner">
+      <span class="logo">PDA</span>
+      <h1>Pushdown Automata Simulator</h1>
+      <div class="toggle-group" id="mode-toggle">
+        <button id="btn-dpda" class="active" onclick="setMode('dpda')">DPDA</button>
+        <button id="btn-npda" onclick="setMode('npda')">NPDA</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── TOP ROW: Definition | Description ─────────────────── -->
+  <div class="top-row">
+
+    <section class="panel" id="panel-definition">
+      <div class="panel-title">PDA Definition</div>
+
+      <div class="field">
+        <label>All States <span class="hint">(comma-separated)</span></label>
+        <input type="text" id="all-states" value="q0, q1, q2" placeholder="q0, q1, q2, …" />
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Start state</label>
+          <input type="text" id="start-state" value="q0" />
+        </div>
+        <div class="field">
+          <label>Accept states <span class="hint">(comma-separated)</span></label>
+          <input type="text" id="accept-states" value="q2" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Acceptance Condition</label>
+        <div class="accept-toggle">
+          <button id="acc-final" class="acc-btn active" onclick="setAcceptMode('final')">
+            <span class="acc-icon">◎</span> Final State
+          </button>
+          <button id="acc-empty" class="acc-btn" onclick="setAcceptMode('empty')">
+            <span class="acc-icon">∅</span> Empty Stack
+          </button>
+        </div>
+        <div id="acc-hint" class="hint" style="margin-top:5px">
+          Accepts when input is fully consumed <em>and</em> the machine is in an accept state.
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Transitions
+          <span class="hint">
+            <code>state, symbol, stackTop → nextState, stackPush</code><br>
+            Use <code>ε</code> or <code>eps</code> for epsilon &nbsp;|&nbsp; <code>Z</code> = initial stack symbol<br>
+            NPDA: duplicate LHS lines = parallel branches
+          </span>
+        </label>
+        <textarea id="transitions-input" rows="7" spellcheck="false">q0, a, Z → q0, AZ
+q0, a, A → q0, AA
+q0, b, A → q1, ε
+q1, b, A → q1, ε
+q1, ε, Z → q2, Z</textarea>
+        <div id="trans-error" class="err-msg"></div>
+        <div id="nd-warning" class="warn-msg" style="display:none"></div>
+      </div>
+
+      <div class="field">
+        <label>Input String</label>
+        <input type="text" id="input-string" value="aabb" placeholder="e.g. aabb" />
+      </div>
+
+      <div class="btn-row">
+        <button class="btn-primary" onclick="buildPDA()">▶ Build &amp; Load</button>
+        <button class="btn-secondary" onclick="loadExample('anbn')">aⁿbⁿ (DPDA)</button>
+        <button class="btn-secondary" onclick="loadExample('evenpal')">Even Palindrome (NPDA)</button>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-description">
+      <div class="panel-title">About Pushdown Automata</div>
+      <div class="desc-body">
+        <p>A <strong>Pushdown Automaton (PDA)</strong> is a finite automaton augmented with an unbounded stack. It can recognise a strictly larger class of languages than regular finite automata — specifically, the <em>context-free languages</em>.</p>
+
+        <div class="desc-section">
+          <div class="desc-section-title">How it works</div>
+          <p>At each step the PDA reads one symbol from the input tape (or takes an ε-move reading nothing), peeks at the top of the stack, and — based on the current state, that input symbol, and that stack symbol — transitions to a new state while replacing the stack top with zero or more new symbols.</p>
+        </div>
+
+        <div class="desc-section">
+          <div class="desc-section-title">Transition format</div>
+          <div class="desc-rule">
+            <code>state, inputSymbol, stackTop → nextState, stackPush</code>
+          </div>
+          <ul class="desc-list">
+            <li><code>inputSymbol = ε</code> — consume no input (ε-move)</li>
+            <li><code>stackTop = ε</code> — match any stack top without popping</li>
+            <li><code>stackPush = ε</code> — pop the stack top, push nothing</li>
+            <li><code>stackPush = AZ</code> — push A on top, Z below (rightmost = deepest)</li>
+            <li><code>Z</code> — the initial bottom-of-stack marker</li>
+          </ul>
+        </div>
+
+        <div class="desc-section">
+          <div class="desc-section-title">Acceptance conditions</div>
+          <ul class="desc-list">
+            <li><strong>Final state</strong> — input fully consumed and machine in an accept state (double-circled in the graph).</li>
+            <li><strong>Empty stack</strong> — input fully consumed and stack is completely empty. Accept states are ignored; watch for the stack to drain to nothing.</li>
+          </ul>
+          <p style="margin-top:6px">Both conditions define the same family of languages, but differ in which PDAs recognise which strings.</p>
+        </div>
+
+        <div class="desc-section">
+          <div class="desc-section-title">DPDA vs NPDA</div>
+          <ul class="desc-list">
+            <li><strong>DPDA</strong> — at most one valid transition per <code>(state, symbol, stackTop)</code>. The simulator warns you if your transition table is ambiguous.</li>
+            <li><strong>NPDA</strong> — multiple transitions can share the same left-hand side. Every possibility is explored <em>in parallel</em>; the string is accepted if <em>any</em> branch succeeds. Some languages (e.g. even-length palindromes) require NPDA.</li>
+          </ul>
+        </div>
+
+        <div class="desc-section">
+          <div class="desc-section-title">Built-in examples</div>
+          <ul class="desc-list">
+            <li><strong>aⁿbⁿ</strong> — equal number of a's followed by b's. Deterministic; a classic DPDA language.</li>
+            <li><strong>Even palindromes</strong> — even-length strings that read the same forwards and backwards. NPDA only.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+  </div><!-- /top-row -->
+
+  <!-- ── BOTTOM SECTION: 4-panel sim area ───────────────────── -->
+  <div class="sim-section">
+
+    <div class="sim-grid">
+
+      <!-- Simulation panel -->
+      <section class="panel sim-panel" id="panel-sim">
+        <div class="panel-title">Simulation</div>
+        <div class="input-tape" id="input-tape">
+          <span class="tape-placeholder">Load a PDA first</span>
+        </div>
+        <div class="controls-row">
+          <button class="btn-primary" id="btn-play" onclick="togglePlay()" disabled>▶ Play</button>
+          <button class="btn-secondary" id="btn-step" onclick="stepSim()" disabled>Step</button>
+          <button class="btn-secondary" id="btn-reset" onclick="resetSim()" disabled>↺ Reset</button>
+        </div>
+        <div class="speed-row">
+          <span>Slower</span>
+          <input type="range" id="speed-slider" min="1" max="4" value="2" step="1" />
+          <span>Faster</span>
+        </div>
+        <div class="status-row">
+          <div id="status-pill" class="status-pill idle">Idle</div>
+          <span class="status-label">State: <strong id="current-state-display">—</strong></span>
+          <span class="status-label">Step: <strong id="step-display">0</strong></span>
+        </div>
+        <div id="npda-paths" class="npda-info" style="display:none"></div>
+      </section>
+
+      <!-- Graph panel -->
+      <section class="panel sim-panel" id="panel-graph">
+        <div class="panel-title">PDA Graph</div>
+        <div class="graph-area">
+          <svg id="pda-svg" width="100%" viewBox="0 0 520 240"></svg>
+        </div>
+      </section>
+
+      <!-- Log panel -->
+      <section class="panel sim-panel" id="panel-log">
+        <div class="panel-title">Transition Log</div>
+        <div class="log-area" id="log-area">
+          <div class="log-entry muted">Build PDA and run simulation…</div>
+        </div>
+      </section>
+
+      <!-- Stack panel -->
+      <section class="panel sim-panel" id="panel-stack">
+        <div class="panel-title">Stack</div>
+        <div class="stack-wrapper">
+
+          <div id="stack-single">
+            <div class="stack-top-label">↑ top</div>
+            <div class="stack-items" id="stack-display"></div>
+            <div class="stack-base"></div>
+            <div class="stack-bot-label">bottom</div>
+          </div>
+
+          <div id="stack-branches" style="display:none">
+            <div class="branch-header">Live Branches</div>
+            <div id="branch-list" class="branch-list"></div>
+          </div>
+
+        </div>
+      </section>
+
+    </div><!-- /sim-grid -->
+
+  </div><!-- /sim-section -->
+
+  <script src="script.js"></script>
+</body>
+</html>
